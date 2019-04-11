@@ -17,5 +17,5 @@ exit /b 1
 :run
 if not exist ..\bin mkdir ..\bin
 
-set CommonCompilerFlags=-nologo -W4 -Od -wd4996
+set CommonCompilerFlags=-nologo -W4 -Od -Zi -wd4996
 cl %CommonCompilerFlags% -Fe..\bin\main.exe main.cpp

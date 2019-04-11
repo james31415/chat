@@ -33,40 +33,29 @@ InitializeHandles() {
 	if (hStdin == INVALID_HANDLE_VALUE) ErrorExit("GetStdHandle");
 }
 
-struct string {
-	char* String;
-	u32 Length;
-};
-
-void
-CopyString(string* String, char* Source) {
-	u32 Length = (u32)strlen(Source);
-	String->String = (char*)malloc(Length * sizeof(Source));
-	String->Length = Length;
-
-	strcpy(String->String, Source);
-}
-
 #define BUFFER_LENGTH 256
 
 void
-GetInputLine(string* Input) {
-	Input->String = (char*)malloc(BUFFER_LENGTH * sizeof(char));
-	Input->Length = BUFFER_LENGTH;
-
+_ReadConsole(char* Input, u32 Length) {
 	DWORD NumRead;
-	if (!ReadConsole(hStdin, Input->String, Input->Length, &NumRead, NULL)) ErrorExit("ReadConsole");
+	if (!ReadConsole(hStdin, Input, Length, &NumRead, NULL)) ErrorExit("ReadConsole");
 }
 
 void
-TrimInputLine(string* Input) {
+GetInputLine(char** Input) {
+	_ReadConsole(*Input, BUFFER_LENGTH);
+}
+
+#define TrimInputLine(Input) _TrimInputLine(Input, (u32)strlen(Input))
+void
+_TrimInputLine(char* Input, u32 Length) {
 	u32 Index = 0;
-	while (Index < Input->Length) {
-		if (Input->String[Index] == '\r') {
-			Input->String[Index] = '\0';
+	while (Index < Length) {
+		if (Input[Index] == '\r') {
+			Input[Index] = '\0';
 			break;
-		} else if (Input->String[Index] == '\n') {
-			Input->String[Index] = '\0';
+		} else if (Input[Index] == '\n') {
+			Input[Index] = '\0';
 			break;
 		}
 
@@ -80,11 +69,11 @@ struct response {
 };
 
 void
-TokenizeInput(string Tokens[16], string* Input) {
+TokenizeInput(char** Tokens, char* Input) {
 	u32 TokenIndex = 0;
-	char* token = strtok(Input->String, ", "); 
+	char* token = strtok(Input, ", "); 
 	while (token) {
-		CopyString(&Tokens[TokenIndex], token);
+		strcpy(Tokens[TokenIndex], token);
 		++TokenIndex;
 
 		token = strtok(NULL, ", ");
@@ -92,9 +81,9 @@ TokenizeInput(string Tokens[16], string* Input) {
 }
 
 char*
-MatchTokens(string Tokens[16], response Responses[]) {
+MatchTokens(char** Tokens, response* Responses) {
 	for (int ResponseIndex = 0; ResponseIndex < 3; ++ResponseIndex) {
-		if (strcmp(Responses[ResponseIndex].Pattern, Tokens[0].String) == 0) {
+		if (strcmp(Responses[ResponseIndex].Pattern, Tokens[0]) == 0) {
 			return Responses[ResponseIndex].Response;
 		}
 	}
@@ -102,29 +91,30 @@ MatchTokens(string Tokens[16], response Responses[]) {
 	return NULL;
 }
 
-char*
-ParseInput(string* Input) {
-	response Responses[] = {
-		{"Hello", "Hello"},
-		{"Goodbye", "Goodbye"},
-		{"", "I don't understand"}
-	};
+response Responses[] = {
+	{"Hello", "Hello"},
+	{"My name is (.*)", "Nice to meet you \1"},
+	{"Goodbye", "Goodbye"},
+	{"", "I don't understand"}
+};
 
+char*
+ParseInput(char* Input) {
 	TrimInputLine(Input);
 
-	string Tokens[16];
-	TokenizeInput(Tokens, Input);
+	char* Tokens = (char*)malloc(16 * 256 * sizeof(*Tokens));
+	TokenizeInput(&Tokens, Input);
 
-	return MatchTokens(Tokens, Responses);
+	return MatchTokens(&Tokens, Responses);
 }
 
 int
 main(void) {
 	InitializeHandles();
 
-	string Input;
+	char* Input = (char*)malloc(BUFFER_LENGTH * sizeof(*Input));
 	GetInputLine(&Input);
-	char* Response = ParseInput(&Input);
+	char* Response = ParseInput(Input);
 	printf("%s\n", Response);
 
 	return 0;
